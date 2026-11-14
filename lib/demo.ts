@@ -70,7 +70,13 @@ export function demoDashboard(rangeDays: number) {
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (rangeDays + 6));
   return buildDashboard(
     {
-      profile: { display_name: 'Demo', units: 'imperial', calorie_goal: 2200, water_goal_ml: 2500, weight_goal_kg: 81.6 },
+      profile: {
+        display_name: "Demo",
+        units: "imperial",
+        calorie_goal: 2200,
+        water_goal_ml: 2500,
+        weight_goal_kg: 81.6,
+      },
       food: food.reverse(),
       water,
       weight: weight.filter((w) => new Date(w.measured_at) >= start),
@@ -83,7 +89,7 @@ export function demoDashboard(rangeDays: number) {
           period_start: localDate(new Date(today.getTime() - 30 * 864e5)),
           period_end: localDate(today),
           content:
-            '• Weight trend is down ~1.5 lb over the month — right on pace for a sustainable 0.5 lb/week.\n• Nights under 6.5 h of sleep were followed by ~250 kcal more eaten the next day.\n• Water averaged 75 oz, short of the 85 oz goal on 4 of 7 days. Try front-loading a bottle before lunch.\n• Great consistency: 4–5 training sessions every week.',
+            "•  Weight trend is down ~1.5 lb over the month — right on pace for a sustainable 0.5 lb/week.\n• Nights under 6.5 h of sleep were followed by ~250 kcal more eaten the next day.\n• Water averaged 75 oz, short of the 85 oz goal on 4 of 7 days. Try front-loading a bottle before lunch.\n• Great consistency: 4–5 training sessions every week.",
         },
       ],
     },
