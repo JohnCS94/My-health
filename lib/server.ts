@@ -59,7 +59,8 @@ export async function fetchRaw(rangeDays: number): Promise<Raw> {
 
   return {
     profile: (settings.data ?? { display_name: null, units: 'imperial', calorie_goal: 2200, water_goal_ml: 2500, weight_goal_kg: null }) as Profile,
-    food: (food.data ?? []) as FoodRow[],
+    // Hide Lose It's connection test entry (the app's next sync also deletes it).
+    food: ((food.data ?? []) as FoodRow[]).filter((f) => !/\btest sample\b/i.test(f.name)),
     water: water.data ?? [],
     weight: weight.data ?? [],
     sleep: sleep.data ?? [],
