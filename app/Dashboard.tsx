@@ -8,7 +8,7 @@ import {
 } from '@/lib/data';
 import { demoDashboard } from '@/lib/demo';
 import {
-  ChartCard, GoalBarChart, Legend, ScoreLineChart, StackedChart, WeightChart, activityColor, activityKey, useChartTheme,
+  ChartCard, GoalBarChart, Legend, StackedChart, WeightChart, activityColor, activityKey, useChartTheme,
 } from './charts';
 
 const RANGES = [
@@ -184,8 +184,29 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
               <GoalBarChart data={data.days} dataKey="sleepHours" color={t.series[6]} unit="h" goal={8} t={t} digits={1} />
             </ChartCard>
 
-            <ChartCard title="Sleep score" hint="0–100, as entered in the app">
-              <ScoreLineChart data={data.days} dataKey="sleepScore" color={t.series[6]} t={t} />
+            <ChartCard
+              title="Sleep score"
+              hint="Out of 100: duration 50 · bedtime consistency 30 · interruptions 20"
+              legend={
+                <Legend
+                  items={[
+                    { label: 'Duration', color: t.series[0] },
+                    { label: 'Consistency', color: t.series[1] },
+                    { label: 'Interruptions', color: t.series[2] },
+                  ]}
+                />
+              }
+            >
+              <StackedChart
+                data={data.days}
+                keys={['scoreDuration', 'scoreConsistency', 'scoreInterruptions']}
+                names={['Duration', 'Consistency', 'Interruptions']}
+                colors={[t.series[0], t.series[1], t.series[2]]}
+                unit="pts"
+                t={t}
+                yMax={100}
+                totalLabel="Score"
+              />
             </ChartCard>
 
             <ChartCard

@@ -7,7 +7,6 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Scatter,
@@ -177,14 +176,26 @@ export function GoalBarChart({
 }
 
 export function StackedChart({
-  data, keys, colors, names, unit, t, xKey = 'label',
-}: { data: Record<string, unknown>[]; keys: string[]; colors: string[]; names?: string[]; unit: string; t: Theme; xKey?: string }) {
+  data, keys, colors, names, unit, t, xKey = 'label', yMax, totalLabel,
+}: {
+  data: Record<string, unknown>[];
+  keys: string[];
+  colors: string[];
+  names?: string[];
+  unit: string;
+  t: Theme;
+  xKey?: string;
+  /** Fix the y-axis top (e.g. 100 for a score). */
+  yMax?: number;
+  /** If set, the tooltip starts with a total row under this name. */
+  totalLabel?: string;
+}) {
   return (
     <ResponsiveContainer>
       <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }} barCategoryGap={2}>
         <CartesianGrid stroke={t.grid} vertical={false} />
         <XAxis dataKey={xKey} {...axisProps(t)} minTickGap={24} />
-        <YAxis {...axisProps(t)} />
+        <YAxis {...axisProps(t)} domain={yMax ? [0, yMax] : undefined} />
         {keys.map((k, i) => (
           <Bar
             key={k}
@@ -203,44 +214,20 @@ export function StackedChart({
           content={({ active, payload, label }) => {
             const p = (payload as AnyPayload | undefined)?.[0]?.payload;
             if (!active || !p) return null;
-            const rows = keys
+            const rows: TipRow[] = keys
               .map((k, i) => ({ k, i, v: Number(p[k] ?? 0) }))
               .filter((r) => r.v > 0)
               .reverse()
               .map((r) => ({ name: names?.[r.i] ?? r.k, value: `${Math.round(r.v)} ${unit}`, color: colors[r.i] }));
+            if (!rows.length) return null;
+            if (totalLabel) {
+              const total = keys.reduce((a, k) => a + Number(p[k] ?? 0), 0);
+              rows.unshift({ name: totalLabel, value: String(Math.round(total)) });
+            }
             return <Tip title={String(label)} rows={rows} />;
           }}
         />
       </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-export function ScoreLineChart({ data, dataKey, color, t }: { data: Record<string, unknown>[]; dataKey: string; color: string; t: Theme }) {
-  return (
-    <ResponsiveContainer>
-      <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-        <CartesianGrid stroke={t.grid} vertical={false} />
-        <XAxis dataKey="label" {...axisProps(t)} minTickGap={24} />
-        <YAxis {...axisProps(t)} domain={[0, 100]} />
-        <Line
-          dataKey={dataKey}
-          stroke={color}
-          strokeWidth={2}
-          connectNulls
-          dot={{ r: 3, fill: color, stroke: t.surface, strokeWidth: 2 }}
-          activeDot={{ r: 5, fill: color, stroke: t.surface, strokeWidth: 2 }}
-          isAnimationActive={false}
-        />
-        <Tooltip
-          cursor={{ stroke: t.axis, strokeWidth: 1 }}
-          content={({ active, payload, label }) => {
-            const v = (payload as AnyPayload | undefined)?.[0]?.payload?.[dataKey];
-            if (!active || v == null) return null;
-            return <Tip title={String(label)} rows={[{ name: 'Score', value: String(v), color }]} />;
-          }}
-        />
-      </LineChart>
     </ResponsiveContainer>
   );
 }

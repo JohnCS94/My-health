@@ -71,6 +71,9 @@ export type Day = {
   weightAvgKg: number | null; // trailing 7-day mean of logged weights
   sleepHours: number | null;
   sleepScore: number | null;
+  scoreDuration: number | null; // 0–50
+  scoreConsistency: number | null; // 0–30
+  scoreInterruptions: number | null; // 0–20
   workoutMin: number;
 };
 
@@ -106,7 +109,14 @@ export type Raw = {
   food: FoodRow[];
   water: { logged_at: string; amount_ml: number }[];
   weight: { measured_at: string; weight_kg: number }[];
-  sleep: { sleep_date: string; hours: number | null; score: number | null }[];
+  sleep: {
+    sleep_date: string;
+    hours: number | null;
+    score: number | null;
+    score_duration?: number | null;
+    score_consistency?: number | null;
+    score_interruptions?: number | null;
+  }[];
   workouts: WorkoutRow[];
   hevy: HevyWorkout[];
   hevySets: HevySet[];
@@ -145,6 +155,9 @@ export function buildDashboard(raw: Raw, rangeDays: number): Dashboard {
       weightAvgKg: null,
       sleepHours: null,
       sleepScore: null,
+      scoreDuration: null,
+      scoreConsistency: null,
+      scoreInterruptions: null,
       workoutMin: 0,
     });
   }
@@ -166,6 +179,10 @@ export function buildDashboard(raw: Raw, rangeDays: number): Dashboard {
     if (!day) continue;
     day.sleepHours = s.hours != null ? Number(s.hours) : null;
     day.sleepScore = s.score;
+    const n = (x?: number | null) => (x != null ? Number(x) : null);
+    day.scoreDuration = n(s.score_duration);
+    day.scoreConsistency = n(s.score_consistency);
+    day.scoreInterruptions = n(s.score_interruptions);
   }
 
   // Weight: last reading per day, plus trailing 7-day mean.

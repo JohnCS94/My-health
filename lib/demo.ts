@@ -63,7 +63,15 @@ export function demoDashboard(rangeDays: number) {
     for (let g = 0; g < glasses; g++) water.push({ logged_at: at(8 + g * 1.5), amount_ml: 350 });
 
     const hours = Math.round((6.2 + r() * 2.2) * 100) / 100;
-    sleep.push({ sleep_date: localDate(d), hours, score: r() > 0.1 ? Math.round(55 + (hours - 6) * 12 + r() * 10) : null });
+    {
+      const dur = hours >= 7 ? 50 : 50 * Math.max(0, (hours - 4) / 3) ** 1.4;
+      const con = 30 * Math.min(1, Math.max(0, 1 - (r() * 110 - 30) / 120));
+      const int = 20 * (0.6 + r() * 0.4);
+      sleep.push({
+        sleep_date: localDate(d), hours, score: Math.round(dur + con + int),
+        score_duration: Math.round(dur * 10) / 10, score_consistency: Math.round(con * 10) / 10, score_interruptions: Math.round(int * 10) / 10,
+      });
+    }
 
     const dow = d.getDay();
     const plan: [string, number, number | null][] =

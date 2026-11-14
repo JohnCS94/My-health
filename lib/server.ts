@@ -32,7 +32,9 @@ export async function fetchRaw(rangeDays: number): Promise<Raw> {
     supabase.from('food_entries').select('*').gte('eaten_at', iso).order('eaten_at', { ascending: false }).limit(5000),
     supabase.from('water_entries').select('logged_at, amount_ml').gte('logged_at', iso).limit(10000),
     supabase.from('weight_entries').select('measured_at, weight_kg').gte('measured_at', weightStart.toISOString()).order('measured_at').limit(5000),
-    supabase.from('sleep_entries').select('sleep_date, hours, score').gte('sleep_date', localDate(start)),
+    supabase
+      .from('sleep_entries')
+      .select('sleep_date, hours, score, score_duration, score_consistency, score_interruptions').gte('sleep_date', localDate(start)),
     supabase.from('workouts').select('*').gte('started_at', iso).order('started_at', { ascending: false }),
     supabase
       .from('hevy_workouts')
