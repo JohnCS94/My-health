@@ -1,4 +1,4 @@
-import { buildDashboard, localDate, type FoodRow, type Raw, type WorkoutRow } from './data';
+import { buildDashboard, localDate, type FoodRow, type HevySet, type HevyWorkout, type Raw, type WorkoutRow } from './data';
 
 /** Deterministic pseudo-random so the demo looks the same on every load. */
 function rng(seed: number) {
@@ -18,7 +18,17 @@ export function demoDashboard(rangeDays: number) {
   const weight: Raw['weight'] = [];
   const sleep: Raw['sleep'] = [];
   const workouts: WorkoutRow[] = [];
+  const hevy: HevyWorkout[] = [];
+  const hevySets: HevySet[] = [];
   let id = 1;
+
+  // Push / pull / legs rotation with slow progression.
+  const programs: [string, [string, number][]][] = [
+    ['Push Day', [['Bench Press (Barbell)', 80], ['Overhead Press (Barbell)', 47.5], ['Incline Bench Press (Dumbbell)', 30], ['Triceps Pushdown', 30]]],
+    ['Pull Day', [['Deadlift (Barbell)', 140], ['Pull Up', 0], ['Bent Over Row (Barbell)', 70], ['Bicep Curl (Dumbbell)', 15]]],
+    ['Leg Day', [['Squat (Barbell)', 110], ['Romanian Deadlift (Barbell)', 90], ['Leg Press', 180], ['Calf Raise (Machine)', 80]]],
+  ];
+  let liftN = 0;
 
   const meals: [string, string, number, number, number, number][] = [
     ['breakfast', 'Greek yogurt with berries', 280, 22, 34, 6],
@@ -57,8 +67,31 @@ export function demoDashboard(rangeDays: number) {
 
     const dow = d.getDay();
     const plan: [string, number, number | null][] =
-      dow === 1 || dow === 4 ? [['strength', 55, null]] : dow === 2 || dow === 6 ? [['running', 35 + r() * 25, 5 + r() * 4]] : dow === 0 && r() > 0.5 ? [['cycling', 70, 28]] : [];
+      dow === 2 || dow === 6 ? [['running', 35 + r() * 25, 5 + r() * 4]] : dow === 0 && r() > 0.5 ? [['cycling', 70, 28]] : [];
     if (r() > 0.6) plan.push(['walking', 30 + r() * 20, 2.5 + r()]);
+    if (dow === 1 || dow === 3 || dow === 5) {
+      const [title, exercises] = programs[liftN++ % programs.length];
+      const progress = 1 + (days - i) / days * 0.08;
+      const hid = `demo-${i}`;
+      const startAt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 17, 30);
+      const mins = 55 + Math.round(r() * 20);
+      let vol = 0;
+      let count = 0;
+      exercises.forEach(([name, base], ei) => {
+        hevySets.push({ workout_id: hid, exercise_index: ei, exercise_title: name, set_index: 0, set_type: 'warmup', weight_kg: base ? Math.round(base * 0.5) : null, reps: 10, distance_m: null, duration_s: null, rpe: null });
+        for (let si = 1; si <= 3; si++) {
+          const w = base ? Math.round((base * progress) / 2.5) * 2.5 : null;
+          const reps = 8 - si + Math.round(r() * 2);
+          hevySets.push({ workout_id: hid, exercise_index: ei, exercise_title: name, set_index: si, set_type: 'normal', weight_kg: w, reps, distance_m: null, duration_s: null, rpe: 7 + si * 0.5 });
+          vol += (w ?? 0) * reps;
+          count++;
+        }
+      });
+      hevy.push({
+        id: hid, title, description: null, started_at: startAt.toISOString(),
+        ended_at: new Date(startAt.getTime() + mins * 60_000).toISOString(), duration_min: mins, volume_kg: Math.round(vol), set_count: count,
+      });
+    }
     for (const [type, mins, km] of plan) {
       workouts.push({
         id: id++, started_at: at(type === 'walking' ? 18 : 6), activity_type: type, duration_min: Math.round(mins),
@@ -82,16 +115,8 @@ export function demoDashboard(rangeDays: number) {
       weight: weight.filter((w) => new Date(w.measured_at) >= start),
       sleep,
       workouts: workouts.reverse(),
-      insights: [
-        {
-          id: 1,
-          created_at: today.toISOString(),
-          period_start: localDate(new Date(today.getTime() - 30 * 864e5)),
-          period_end: localDate(today),
-          content:
-            "•  Weight trend is down ~1.5 lb over the month — right on pace for a sustainable 0.5 lb/week.\n• Nights under 6.5 h of sleep were followed by ~250 kcal more eaten the next day.\n• Water averaged 75 oz, short of the 85 oz goal on 4 of 7 days. Try front-loading a bottle before lunch.\n• Great consistency: 4–5 training sessions every week.",
-        },
-      ],
+      hevy: hevy.reverse(),
+      hevySets: hevySets.filter((x) => hevy.slice(0, 15).some((h) => h.id === x.workout_id)),
     },
     rangeDays,
   );

@@ -222,9 +222,26 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
               )}
             </ChartCard>
 
+            <ChartCard
+              title="Lifting volume"
+              hint={`Weight × reps per week from Hevy (${wLabel(v.u)}, warm-ups excluded)`}
+            >
+              {data.hevy.length ? (
+                <GoalBarChart data={v.liftSeries} dataKey="volume" color={activityColor(t, 'strength')} unit={wLabel(v.u)} t={t} />
+              ) : (
+                <div className="empty">No Hevy workouts in this range.</div>
+              )}
+            </ChartCard>
+
             <section className="card span-6">
-              <h2>Recent workouts</h2>
-              <p className="hint">Including those imported from Apple Health</p>
+              <h2>Lifting log</h2>
+              <p className="hint">From Hevy. Tap a session to see every set</p>
+              <LiftingLog data={data} u={v.u} />
+            </section>
+
+            <section className="card span-6">
+              <h2>Cardio & other workouts</h2>
+              <p className="hint">From Apple Health and manual entries</p>
               <div className="scroll">
                 <table>
                   <thead>
@@ -260,23 +277,65 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
               <FoodLog data={data} day={foodDay} />
             </section>
 
-            <section className="card span-6">
-              <h2>AI insights</h2>
-              <p className="hint">Generated weekly from the last 30 days of data</p>
-              {data.insights.length ? (
-                data.insights.slice(0, 2).map((i) => (
-                  <div key={i.id} style={{ marginBottom: 16 }}>
-                    <div className="insight-date">{new Date(i.created_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}</div>
-                    <div className="insight">{i.content}</div>
-                  </div>
-                ))
-              ) : (
-                <div className="empty">No insights yet.</div>
-              )}
-            </section>
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function LiftingLog({ data, u }: { data: Data; u: 'imperial' | 'metric' }) {
+  if (!data.hevy.length) return <div className="empty">No Hevy workouts yet.</div>;
+  const w = (kg: number) => round(kgTo(kg, u), 1);
+  return (
+    <div className="scroll lifts">
+      {data.hevy.slice(0, 30).map((h, idx) => {
+        const sets = data.hevySets.filter((s) => s.workout_id === h.id);
+        const exercises = [...new Set(sets.map((s) => s.exercise_title))];
+        return (
+          <details key={h.id} open={idx === 0}>
+            <summary>
+              <span className="lift-date">{new Date(h.started_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+              <span className="lift-title">{h.title ?? 'Workout'}</span>
+              <span className="lift-meta">
+                {Math.round(Number(h.duration_min ?? 0))} min · {h.set_count ?? 0} sets · {Math.round(kgTo(Number(h.volume_kg ?? 0), u)).toLocaleString()} {wLabel(u)}
+              </span>
+            </summary>
+            {exercises.length ? (
+              <table>
+                <tbody>
+                  {exercises.map((name) => {
+                    const ex = sets.filter((s) => s.exercise_title === name);
+                    return (
+                      <tr key={name}>
+                        <td style={{ width: '40%' }}>{name}</td>
+                        <td>
+                          {ex
+                            .map((s) => {
+                              const body =
+                                s.reps != null
+                                  ? `${s.weight_kg ? `${w(Number(s.weight_kg))}×` : ''}${s.reps}`
+                                  : s.duration_s
+                                    ? `${Math.round(Number(s.duration_s))}s`
+                                    : s.distance_m
+                                      ? `${Math.round(Number(s.distance_m))}m`
+                                      : '–';
+                              return s.set_type === 'warmup' ? `(${body})` : body;
+                            })
+                            .join(', ')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <div className="sub" style={{ padding: '6px 0' }}>Set details are loaded for the 15 most recent sessions.</div>
+            )}
+          </details>
+        );
+      })}
+      <div className="sub" style={{ marginTop: 8 }}>Weights in {wLabel(u)} · (warm-up sets in parentheses)</div>
     </div>
   );
 }
@@ -348,7 +407,10 @@ function derive(data: Data) {
 
   const since7 = new Date();
   since7.setDate(since7.getDate() - 7);
-  const recentWorkouts = data.workouts.filter((w) => new Date(w.started_at) >= since7);
+  const recentWorkouts = [
+    ...data.workouts.map((w) => ({ at: w.started_at, min: Number(w.duration_min) })),
+    ...data.hevy.map((h) => ({ at: h.started_at, min: Number(h.duration_min ?? 0) })),
+  ].filter((w) => new Date(w.at) >= since7);
 
   return {
     u,
@@ -366,7 +428,8 @@ function derive(data: Data) {
     score7: mean(last7.map((d) => d.sleepScore)),
     water7: mean(last7.map((d) => d.waterMl)),
     workouts7: recentWorkouts.length,
-    workoutMin7: recentWorkouts.reduce((a, w) => a + Number(w.duration_min), 0),
+    workoutMin7: recentWorkouts.reduce((a, w) => a + w.min, 0),
+    liftSeries: data.liftWeeks.map((lw) => ({ label: lw.label, volume: lw.sessions ? Math.round(kgTo(lw.volumeKg, u)) : null })),
     activityKeys,
     weekSeries,
   };

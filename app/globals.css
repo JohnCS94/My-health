@@ -116,8 +116,6 @@ td { padding: 7px 8px; border-bottom: 1px solid var(--border); font-variant-nume
 td.cap { text-transform: capitalize; }
 .scroll { max-height: 340px; overflow: auto; }
 
-.insight { white-space: pre-wrap; font-size: 14px; line-height: 1.55; color: var(--text-primary); }
-.insight-date { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
 
 .center { min-height: 80vh; display: grid; place-items: center; }
 .login { width: 100%; max-width: 360px; display: grid; gap: 10px; }
@@ -127,3 +125,17 @@ td.cap { text-transform: capitalize; }
 a.btn { display: inline-block; }
 a.btn.ghost { color: var(--text-secondary); }
 @media (max-width: 860px) { .grid > * { grid-column: 1 / -1; } }
+
+.lifts details { border-bottom: 1px solid var(--border); padding: 8px 0; }
+.lifts summary {
+  position: relative; cursor: pointer; list-style: none; display: grid; grid-template-columns: 92px 1fr; gap: 2px 10px; align-items: baseline;
+}
+.lifts summary::-webkit-details-marker { display: none; }
+.lifts summary::before { content: '▸'; position: absolute; left: -14px; top: 1px; color: var(--text-muted); font-size: 11px; }
+.lifts details[open] summary::before { content: '▾'; }
+.lifts { padding-left: 14px; }
+.lift-date { font-size: 12px; color: var(--text-secondary); }
+.lift-title { font-weight: 600; }
+.lift-meta { grid-column: 2; font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.lifts details table { margin-top: 6px; }
+.lifts details td { font-size: 12px; padding: 5px 6px; vertical-align: top; }

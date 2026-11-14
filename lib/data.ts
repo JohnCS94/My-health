@@ -33,6 +33,32 @@ export type WorkoutRow = {
   source: string;
 };
 
+export type HevyWorkout = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  started_at: string;
+  ended_at: string | null;
+  duration_min: number | null;
+  volume_kg: number | null;
+  set_count: number | null;
+};
+
+export type HevySet = {
+  workout_id: string;
+  exercise_index: number;
+  exercise_title: string;
+  set_index: number;
+  set_type: string | null;
+  weight_kg: number | null;
+  reps: number | null;
+  distance_m: number | null;
+  duration_s: number | null;
+  rpe: number | null;
+};
+
+export type LiftWeek = { week: string; label: string; volumeKg: number; sessions: number };
+
 export type Day = {
   date: string; // YYYY-MM-DD
   label: string; // "Nov 3"
@@ -55,9 +81,11 @@ export type Dashboard = {
   days: Day[];
   weeks: Week[];
   activities: string[];
-  workouts: WorkoutRow[];
+  workouts: WorkoutRow[]; // Apple Health + manual, minus Hevy duplicates
+  hevy: HevyWorkout[];
+  hevySets: HevySet[]; // sets for the most recent Hevy sessions
+  liftWeeks: LiftWeek[];
   food: FoodRow[];
-  insights: { id: number; created_at: string; content: string; period_start: string; period_end: string }[];
 };
 
 export const localDate = (d: Date) => {
@@ -80,7 +108,8 @@ export type Raw = {
   weight: { measured_at: string; weight_kg: number }[];
   sleep: { sleep_date: string; hours: number | null; score: number | null }[];
   workouts: WorkoutRow[];
-  insights: Dashboard['insights'];
+  hevy: HevyWorkout[];
+  hevySets: HevySet[];
 };
 
 export function rangeStart(rangeDays: number) {
@@ -154,19 +183,45 @@ export function buildDashboard(raw: Raw, rangeDays: number): Dashboard {
   }
 
   // Workouts: per-day minutes and per-week minutes by activity.
-  const wk = raw.workouts.filter((w) => new Date(w.started_at) >= start);
+  // Hevy sessions count as "strength". Apple Health strength entries overlapping a Hevy
+  // session are Hevy's own copy, so they're dropped to avoid double counting.
+  const hevy = (raw.hevy ?? []).filter((h) => new Date(h.started_at) >= start);
+  const hevySpans = hevy.map((h) => {
+    const b0 = new Date(h.started_at).getTime();
+    return [b0, h.ended_at ? new Date(h.ended_at).getTime() : b0 + Number(h.duration_min ?? 0) * 60_000] as const;
+  });
+  const isHevyCopy = (w: WorkoutRow) => {
+    if (w.activity_type !== 'strength') return false;
+    const a0 = new Date(w.started_at).getTime();
+    const a1 = a0 + Number(w.duration_min) * 60_000;
+    return hevySpans.some(([b0, b1]) => a0 < b1 && b0 < a1);
+  };
+  const wk = raw.workouts.filter((w) => new Date(w.started_at) >= start && !isHevyCopy(w));
+  const sessions = [
+    ...wk.map((w) => ({ at: w.started_at, type: w.activity_type, min: Number(w.duration_min) })),
+    ...hevy.map((h) => ({ at: h.started_at, type: 'strength', min: Number(h.duration_min ?? 0) })),
+  ];
   const weeks = new Map<string, Week>();
   for (let d = weekStart(start); d <= end; d.setDate(d.getDate() + 7)) {
     weeks.set(localDate(d), { week: localDate(d), label: label(d) });
   }
   const activityTotals = new Map<string, number>();
-  for (const w of wk) {
-    const at = new Date(w.started_at);
+  for (const w of sessions) {
+    const at = new Date(w.at);
     const day = days.get(localDate(at));
-    if (day) day.workoutMin += Number(w.duration_min);
+    if (day) day.workoutMin += w.min;
     const week = weeks.get(localDate(weekStart(at)));
-    if (week) week[w.activity_type] = Number(week[w.activity_type] ?? 0) + Number(w.duration_min);
-    activityTotals.set(w.activity_type, (activityTotals.get(w.activity_type) ?? 0) + Number(w.duration_min));
+    if (week) week[w.type] = Number(week[w.type] ?? 0) + w.min;
+    activityTotals.set(w.type, (activityTotals.get(w.type) ?? 0) + w.min);
+  }
+
+  const liftWeeks = new Map<string, LiftWeek>();
+  for (const w of weeks.values()) liftWeeks.set(w.week, { week: w.week, label: w.label, volumeKg: 0, sessions: 0 });
+  for (const h of hevy) {
+    const lw = liftWeeks.get(localDate(weekStart(new Date(h.started_at))));
+    if (!lw) continue;
+    lw.volumeKg += Number(h.volume_kg ?? 0);
+    lw.sessions += 1;
   }
 
   return {
@@ -175,8 +230,10 @@ export function buildDashboard(raw: Raw, rangeDays: number): Dashboard {
     weeks: [...weeks.values()],
     activities: [...activityTotals.entries()].sort((a, b) => b[1] - a[1]).map(([a]) => a),
     workouts: wk,
+    hevy: [...hevy].sort((a, b) => b.started_at.localeCompare(a.started_at)),
+    hevySets: raw.hevySets ?? [],
+    liftWeeks: [...liftWeeks.values()],
     food: raw.food,
-    insights: raw.insights,
   };
 }
 
