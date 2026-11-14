@@ -328,6 +328,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
 
 function Unlock({ onUnlocked }: { onUnlocked: () => void }) {
   const [passphrase, setPassphrase] = useState('');
+  const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -351,15 +352,29 @@ function Unlock({ onUnlocked }: { onUnlocked: () => void }) {
     <div className="center">
       <form className="login" onSubmit={submit}>
         <h1>Health dashboard</h1>
-        <input
-          type="password"
-          placeholder="Passphrase"
-          autoComplete="current-password"
-          autoFocus
-          value={passphrase}
-          onChange={(e) => setPassphrase(e.target.value)}
-          required
-        />
+        <div className="pass-field">
+          <input
+            type={show ? 'text' : 'password'}
+            placeholder="Passphrase"
+            autoComplete="current-password"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            autoFocus
+            value={passphrase}
+            onChange={(e) => setPassphrase(e.target.value)}
+            required
+          />
+          <button
+            type="button"
+            className="pass-toggle"
+            onClick={() => setShow((v) => !v)}
+            aria-label={show ? 'Hide passphrase' : 'Show passphrase'}
+            aria-pressed={show}
+          >
+            {show ? 'Hide' : 'Show'}
+          </button>
+        </div>
         <button className="btn" disabled={busy || !passphrase}>
           {busy ? 'Checking…' : 'Unlock'}
         </button>

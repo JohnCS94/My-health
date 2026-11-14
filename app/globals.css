@@ -139,3 +139,12 @@ a.btn.ghost { color: var(--text-secondary); }
 .lift-meta { grid-column: 2; font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .lifts details table { margin-top: 6px; }
 .lifts details td { font-size: 12px; padding: 5px 6px; vertical-align: top; }
+
+.pass-field { position: relative; }
+.pass-field input { width: 100%; padding-right: 64px; }
+.pass-toggle {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 600;
+  padding: 6px 8px; border-radius: 8px; cursor: pointer;
+}
+.pass-toggle:hover { color: var(--text-primary); background: var(--surface-2); }
