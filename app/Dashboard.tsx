@@ -284,8 +284,8 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
             </section>
 
             <section className="card span-6">
-              <h2>Cardio & other workouts</h2>
-              <p className="hint">From Apple Health (Strava, Apple Watch, …)</p>
+              <h2>Cardio</h2>
+              <p className="hint">Runs, walks, rides, swims and more from Apple Health (Strava, Apple Watch, …)</p>
               <div className="scroll">
                 <table>
                   <thead>
@@ -298,7 +298,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.workouts.slice(0, 50).map((w) => (
+                    {data.cardio.slice(0, 50).map((w) => (
                       <tr key={w.id} title={w.notes ?? undefined}>
                         <td>{new Date(w.started_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
                         <td className="cap">{w.activity_type}</td>
@@ -309,7 +309,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
                     ))}
                   </tbody>
                 </table>
-                {!data.workouts.length ? <div className="empty">No workouts yet.</div> : null}
+                {!data.cardio.length ? <div className="empty">No cardio in this range.</div> : null}
               </div>
             </section>
 

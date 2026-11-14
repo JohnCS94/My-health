@@ -33,6 +33,18 @@ export type WorkoutRow = {
   source: string;
 };
 
+/**
+ * Activity types shown in the Cardio table. Names come from Apple Health's workout types (some aliased
+ * by the app: 'hiit'). Anything else (strength, 'other', yoga, …) is left out of the Cardio table.
+ */
+export const CARDIO = new Set([
+  'running', 'walking', 'hiking', 'cycling', 'handCycling', 'swimming', 'rowing', 'elliptical',
+  'stairClimbing', 'stairs', 'stepTraining', 'hiit', 'mixedCardio', 'cardioDance', 'jumpRope',
+  'crossCountrySkiing', 'downhillSkiing', 'snowboarding', 'skatingSports', 'paddleSports', 'surfingSports',
+  'waterFitness', 'wheelchairRunPace', 'wheelchairWalkPace',
+]);
+export const isCardio = (activity: string) => CARDIO.has(activity);
+
 export type HevyWorkout = {
   id: string;
   title: string | null;
@@ -84,7 +96,8 @@ export type Dashboard = {
   days: Day[];
   weeks: Week[];
   activities: string[];
-  workouts: WorkoutRow[]; // Apple Health, minus Hevy duplicates
+  workouts: WorkoutRow[]; // Apple Health, minus Hevy duplicates (all types; Training volume uses these)
+  cardio: WorkoutRow[]; // cardio-only subset for the Cardio table
   hevy: HevyWorkout[];
   hevySets: HevySet[]; // sets for the most recent Hevy sessions
   liftWeeks: LiftWeek[];
@@ -215,8 +228,10 @@ export function buildDashboard(raw: Raw, rangeDays: number): Dashboard {
     const b0 = new Date(h.started_at).getTime();
     return [b0, h.ended_at ? new Date(h.ended_at).getTime() : b0 + Number(h.duration_min ?? 0) * 60_000] as const;
   });
+  // Hevy can reach Apple Health directly or via Strava (which labels lifts "other"), so any
+  // non-cardio Health workout overlapping a Hevy session is treated as a copy of it.
   const isHevyCopy = (w: WorkoutRow) => {
-    if (w.activity_type !== 'strength') return false;
+    if (isCardio(w.activity_type)) return false;
     const a0 = new Date(w.started_at).getTime();
     const a1 = a0 + Number(w.duration_min) * 60_000;
     return hevySpans.some(([b0, b1]) => a0 < b1 && b0 < a1);
@@ -228,7 +243,7 @@ export function buildDashboard(raw: Raw, rangeDays: number): Dashboard {
   ];
   const weeks = new Map<string, Week>();
   for (let d = weekStart(start); d <= end; d.setDate(d.getDate() + 7)) {
-    weeks.set(localDate(d), { week: localDate(d), label: label(d) });
+    weeks.set(localDate(d), { week: localDate(d), label: `Week of ${label(d)}` });
   }
   const activityTotals = new Map<string, number>();
   for (const w of sessions) {
@@ -255,6 +270,7 @@ export function buildDashboard(raw: Raw, rangeDays: number): Dashboard {
     weeks: [...weeks.values()],
     activities: [...activityTotals.entries()].sort((a, b) => b[1] - a[1]).map(([a]) => a),
     workouts: wk,
+    cardio: wk.filter((w) => isCardio(w.activity_type)),
     hevy: [...hevy].sort((a, b) => b.started_at.localeCompare(a.started_at)),
     hevySets: raw.hevySets ?? [],
     liftWeeks: [...liftWeeks.values()],
