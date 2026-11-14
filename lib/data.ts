@@ -84,7 +84,7 @@ export type Dashboard = {
   days: Day[];
   weeks: Week[];
   activities: string[];
-  workouts: WorkoutRow[]; // Apple Health + manual, minus Hevy duplicates
+  workouts: WorkoutRow[]; // Apple Health, minus Hevy duplicates
   hevy: HevyWorkout[];
   hevySets: HevySet[]; // sets for the most recent Hevy sessions
   liftWeeks: LiftWeek[];

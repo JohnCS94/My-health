@@ -283,7 +283,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
 
             <section className="card span-6">
               <h2>Cardio & other workouts</h2>
-              <p className="hint">From Apple Health and manual entries</p>
+              <p className="hint">From Apple Health (Strava, Apple Watch, …)</p>
               <div className="scroll">
                 <table>
                   <thead>
