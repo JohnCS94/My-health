@@ -127,9 +127,17 @@ export function rangeStart(rangeDays: number) {
   return new Date(end.getFullYear(), end.getMonth(), end.getDate() - (rangeDays - 1));
 }
 
+/** Thrown when the passphrase hasn't been entered on this device (or it changed). */
+export class LockedError extends Error {
+  constructor() {
+    super('locked');
+  }
+}
+
 /** Fetch raw rows from our own server route (which holds the app token) and aggregate them. */
 export async function loadDashboard(rangeDays: number): Promise<Dashboard> {
   const res = await fetch(`/api/dashboard?days=${rangeDays}`, { cache: 'no-store' });
+  if (res.status === 401) throw new LockedError();
   const body = await res.json();
   if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
   return buildDashboard(body as Raw, rangeDays);

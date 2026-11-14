@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-  distLabel, kgTo, kmTo, loadDashboard, localDate, mean, mlTo, round, wLabel, waterLabel,
+  LockedError, distLabel, kgTo, kmTo, loadDashboard, localDate, mean, mlTo, round, wLabel, waterLabel,
   type Dashboard as Data,
 } from '@/lib/data';
 import { demoDashboard } from '@/lib/demo';
@@ -25,6 +25,8 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
   const [range, setRange] = useState(30);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
+  const [unlockCount, setUnlockCount] = useState(0);
   const [updated, setUpdated] = useState<Date | null>(null);
   const [foodDay, setFoodDay] = useState(localDate(new Date()));
 
@@ -40,9 +42,16 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
           if (cancelled) return;
           setData(d);
           setError(null);
+          setLocked(false);
           setUpdated(new Date());
         })
-        .catch((e) => !cancelled && setError(e.message));
+        .catch((e) => {
+          if (cancelled) return;
+          if (e instanceof LockedError) {
+            setLocked(true);
+            setData(null);
+          } else setError(e.message);
+        });
     load();
     // Refresh every minute while the tab is visible, and right away when it becomes visible again.
     const id = setInterval(() => document.visibilityState === 'visible' && load(), REFRESH_MS);
@@ -53,9 +62,17 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [range, demo]);
+  }, [range, demo, unlockCount]);
 
   const v = useMemo(() => (data ? derive(data) : null), [data]);
+
+  if (locked) return <Unlock onUnlocked={() => setUnlockCount((n) => n + 1)} />;
+
+  async function lock() {
+    await fetch('/api/logout', { method: 'POST' });
+    setData(null);
+    setLocked(true);
+  }
 
   return (
     <div className="wrap">
@@ -78,7 +95,11 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
             <a className="btn ghost" href="/" style={{ textDecoration: 'none' }}>
               Exit demo
             </a>
-          ) : null}
+          ) : (
+            <button className="btn ghost" onClick={lock}>
+              Lock
+            </button>
+          )}
         </div>
       </header>
 
@@ -301,6 +322,49 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function Unlock({ onUnlocked }: { onUnlocked: () => void }) {
+  const [passphrase, setPassphrase] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passphrase }),
+    });
+    setBusy(false);
+    if (res.ok) return onUnlocked();
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    setMsg(body.error ?? 'Something went wrong');
+    setPassphrase('');
+  }
+
+  return (
+    <div className="center">
+      <form className="login" onSubmit={submit}>
+        <h1>Health dashboard</h1>
+        <input
+          type="password"
+          placeholder="Passphrase"
+          autoComplete="current-password"
+          autoFocus
+          value={passphrase}
+          onChange={(e) => setPassphrase(e.target.value)}
+          required
+        />
+        <button className="btn" disabled={busy || !passphrase}>
+          {busy ? 'Checking…' : 'Unlock'}
+        </button>
+        {msg ? <div className="err">{msg}</div> : null}
+      </form>
     </div>
   );
 }
