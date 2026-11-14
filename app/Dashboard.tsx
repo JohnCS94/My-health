@@ -12,9 +12,11 @@ import {
 } from './charts';
 
 const RANGES = [
+  { days: 7, label: '1W' },
   { days: 14, label: '2W' },
   { days: 30, label: '1M' },
   { days: 90, label: '3M' },
+  { days: 182, label: '6M' },
   { days: 365, label: '1Y' },
 ];
 
@@ -22,7 +24,7 @@ const REFRESH_MS = 60_000;
 
 export default function Dashboard({ demo = false }: { demo?: boolean }) {
   const t = useChartTheme();
-  const [range, setRange] = useState(30);
+  const [range, setRange] = useState(7);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
