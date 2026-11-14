@@ -1,9 +1,6 @@
-import { supabase } from './supabase';
-
 export type Units = 'imperial' | 'metric';
 
 export type Profile = {
-  id: string;
   display_name: string | null;
   units: Units;
   calorie_goal: number | null;
@@ -76,12 +73,6 @@ function weekStart(d: Date) {
   return x;
 }
 
-export async function readableOwners() {
-  const { data, error } = await supabase.rpc('readable_owners');
-  if (error) throw error;
-  return (data ?? []) as { owner_id: string; display_name: string | null }[];
-}
-
 export type Raw = {
   profile: Profile;
   food: FoodRow[];
@@ -97,43 +88,12 @@ export function rangeStart(rangeDays: number) {
   return new Date(end.getFullYear(), end.getMonth(), end.getDate() - (rangeDays - 1));
 }
 
-export async function loadDashboard(ownerId: string, rangeDays: number): Promise<Dashboard> {
-  const start = rangeStart(rangeDays);
-  // Fetch 6 extra days of weight so the 7-day average is defined from day one.
-  const weightStart = new Date(start);
-  weightStart.setDate(weightStart.getDate() - 6);
-  const iso = start.toISOString();
-
-  const [profile, food, water, weight, sleep, workouts, insights] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', ownerId).single(),
-    supabase.from('food_entries').select('*').eq('user_id', ownerId).gte('eaten_at', iso).order('eaten_at', { ascending: false }).limit(5000),
-    supabase.from('water_entries').select('logged_at, amount_ml').eq('user_id', ownerId).gte('logged_at', iso).limit(10000),
-    supabase
-      .from('weight_entries')
-      .select('measured_at, weight_kg')
-      .eq('user_id', ownerId)
-      .gte('measured_at', weightStart.toISOString())
-      .order('measured_at')
-      .limit(5000),
-    supabase.from('sleep_entries').select('sleep_date, hours, score').eq('user_id', ownerId).gte('sleep_date', localDate(start)),
-    supabase.from('workouts').select('*').eq('user_id', ownerId).gte('started_at', iso).order('started_at', { ascending: false }),
-    supabase.from('insights').select('*').eq('user_id', ownerId).order('created_at', { ascending: false }).limit(5),
-  ]);
-  const err = [profile, food, water, weight, sleep, workouts, insights].find((r) => r.error)?.error;
-  if (err) throw err;
-
-  return buildDashboard(
-    {
-      profile: profile.data as Profile,
-      food: (food.data ?? []) as FoodRow[],
-      water: water.data ?? [],
-      weight: weight.data ?? [],
-      sleep: sleep.data ?? [],
-      workouts: (workouts.data ?? []) as WorkoutRow[],
-      insights: insights.data ?? [],
-    },
-    rangeDays,
-  );
+/** Fetch raw rows from our own server route (which holds the app token) and aggregate them. */
+export async function loadDashboard(rangeDays: number): Promise<Dashboard> {
+  const res = await fetch(`/api/dashboard?days=${rangeDays}`, { cache: 'no-store' });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+  return buildDashboard(body as Raw, rangeDays);
 }
 
 /** Aggregate raw rows into per-day and per-week series. */

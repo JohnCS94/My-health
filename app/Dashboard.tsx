@@ -1,14 +1,12 @@
 'use client';
 
-import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-  distLabel, kgTo, kmTo, loadDashboard, localDate, mean, mlTo, readableOwners, round, wLabel, waterLabel,
+  distLabel, kgTo, kmTo, loadDashboard, localDate, mean, mlTo, round, wLabel, waterLabel,
   type Dashboard as Data,
 } from '@/lib/data';
 import { demoDashboard } from '@/lib/demo';
-import { supabase } from '@/lib/supabase';
 import {
   ChartCard, GoalBarChart, Legend, ScoreLineChart, StackedChart, WeightChart, activityColor, activityKey, useChartTheme,
 } from './charts';
@@ -20,58 +18,42 @@ const RANGES = [
   { days: 365, label: '1Y' },
 ];
 
-export default function Dashboard({ session, demo = false }: { session: Session | null; demo?: boolean }) {
+const REFRESH_MS = 60_000;
+
+export default function Dashboard({ demo = false }: { demo?: boolean }) {
   const t = useChartTheme();
-  const [owners, setOwners] = useState<{ owner_id: string; display_name: string | null }[]>([]);
-  const [ownerId, setOwnerId] = useState<string | null>(null);
   const [range, setRange] = useState(30);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [updated, setUpdated] = useState<Date | null>(null);
   const [foodDay, setFoodDay] = useState(localDate(new Date()));
 
   useEffect(() => {
     if (demo) {
-      setOwners([{ owner_id: 'demo', display_name: 'Demo' }]);
-      setOwnerId('demo');
+      setData(demoDashboard(range));
       return;
     }
-    if (!session) return;
-    readableOwners()
-      .then((o) => {
-        setOwners(o);
-        // Default to someone else's data (the partner view), else your own.
-        const other = o.find((x) => x.owner_id !== session.user.id);
-        setOwnerId((other ?? o[0])?.owner_id ?? null);
-      })
-      .catch((e) => setError(e.message));
-  }, [session, demo]);
-
-  useEffect(() => {
-    if (!ownerId) return;
-    setError(null);
-    if (demo) return setData(demoDashboard(range));
-    loadDashboard(ownerId, range)
-      .then(setData)
-      .catch((e) => setError(e.message));
-  }, [ownerId, range, demo]);
-
-  // Live updates: reload when new entries arrive (requires Realtime enabled on the tables; harmless if not).
-  useEffect(() => {
-    if (!ownerId || demo) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const reload = () => {
-      clearTimeout(timer); // a Health sync inserts many rows at once; reload once
-      timer = setTimeout(() => loadDashboard(ownerId, range).then(setData).catch(() => {}), 1500);
-    };
-    const ch = supabase.channel(`dash-${ownerId}`);
-    for (const table of ['weight_entries', 'food_entries', 'sleep_entries', 'water_entries', 'workouts', 'insights']) {
-      ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `user_id=eq.${ownerId}` }, reload);
-    }
-    ch.subscribe();
+    let cancelled = false;
+    const load = () =>
+      loadDashboard(range)
+        .then((d) => {
+          if (cancelled) return;
+          setData(d);
+          setError(null);
+          setUpdated(new Date());
+        })
+        .catch((e) => !cancelled && setError(e.message));
+    load();
+    // Refresh every minute while the tab is visible, and right away when it becomes visible again.
+    const id = setInterval(() => document.visibilityState === 'visible' && load(), REFRESH_MS);
+    const onVis = () => document.visibilityState === 'visible' && load();
+    document.addEventListener('visibilitychange', onVis);
     return () => {
-      supabase.removeChannel(ch);
+      cancelled = true;
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
     };
-  }, [ownerId, range, demo]);
+  }, [range, demo]);
 
   const v = useMemo(() => (data ? derive(data) : null), [data]);
 
@@ -80,18 +62,11 @@ export default function Dashboard({ session, demo = false }: { session: Session 
       <header className="top">
         <div>
           <h1>{data?.profile.display_name ? `${data.profile.display_name}'s health` : 'Health dashboard'}</h1>
-          <div className="sub">{demo ? 'Demo data — sign in to see real data' : `Signed in as ${session?.user.email}`}</div>
+          <div className="sub">
+            {demo ? 'Demo data' : updated ? `Updated ${updated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '\u00a0'}
+          </div>
         </div>
         <div className="filters">
-          {owners.length > 1 ? (
-            <select value={ownerId ?? ''} onChange={(e) => setOwnerId(e.target.value)} aria-label="Whose data">
-              {owners.map((o) => (
-                <option key={o.owner_id} value={o.owner_id}>
-                  {o.owner_id === session?.user.id ? 'Me' : o.display_name ?? 'Partner'}
-                </option>
-              ))}
-            </select>
-          ) : null}
           <div className="seg" role="group" aria-label="Date range">
             {RANGES.map((r) => (
               <button key={r.days} aria-pressed={range === r.days} onClick={() => setRange(r.days)}>
@@ -100,21 +75,16 @@ export default function Dashboard({ session, demo = false }: { session: Session 
             ))}
           </div>
           {demo ? (
-            <a className="btn ghost" href="/" style={{ textDecoration: 'none' }}>Exit demo</a>
-          ) : (
-            <button className="btn ghost" onClick={() => supabase.auth.signOut()}>
-              Sign out
-            </button>
-          )}
+            <a className="btn ghost" href="/" style={{ textDecoration: 'none' }}>
+              Exit demo
+            </a>
+          ) : null}
         </div>
       </header>
 
       {error ? <div className="card err">{error}</div> : null}
-      {!error && owners.length === 0 ? (
-        <div className="card empty">No data shared with you yet. Ask the owner to add your email in the app's Settings → Share with partner.</div>
-      ) : null}
       {!data || !v ? (
-        owners.length ? <div className="empty">Loading…</div> : null
+        error ? null : <div className="empty">Loading…</div>
       ) : (
         <>
           <section className="tiles">

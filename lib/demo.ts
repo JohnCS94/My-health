@@ -70,7 +70,7 @@ export function demoDashboard(rangeDays: number) {
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (rangeDays + 6));
   return buildDashboard(
     {
-      profile: { id: 'demo', display_name: 'Demo', units: 'imperial', calorie_goal: 2200, water_goal_ml: 2500, weight_goal_kg: 81.6 },
+      profile: { display_name: 'Demo', units: 'imperial', calorie_goal: 2200, water_goal_ml: 2500, weight_goal_kg: 81.6 },
       food: food.reverse(),
       water,
       weight: weight.filter((w) => new Date(w.measured_at) >= start),
