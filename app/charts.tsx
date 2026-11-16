@@ -95,7 +95,9 @@ export function Legend({ items }: { items: { label: string; color: string; kind?
   );
 }
 
-export function ChartCard({ title, hint, legend, children, className = 'span-6' }: { title: string; hint?: string; legend?: ReactNode; children: ReactNode; className?: string }) {
+export function ChartCard({
+  title, hint, legend, sub, children, className = 'span-6',
+}: { title: string; hint?: string; legend?: ReactNode; sub?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={`card ${className}`}>
       <div className="card-head">
@@ -103,6 +105,7 @@ export function ChartCard({ title, hint, legend, children, className = 'span-6' 
         {legend}
       </div>
       {hint ? <p className="hint">{hint}</p> : <div style={{ height: 10 }} />}
+      {sub}
       <div className="chart">{children}</div>
     </section>
   );

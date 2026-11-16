@@ -102,6 +102,7 @@ export type Dashboard = {
   hevySets: HevySet[]; // sets for the most recent Hevy sessions
   liftWeeks: LiftWeek[];
   food: FoodRow[];
+  latestWeightKg: number | null;
 };
 
 export const localDate = (d: Date) => {
@@ -133,6 +134,8 @@ export type Raw = {
   workouts: WorkoutRow[];
   hevy: HevyWorkout[];
   hevySets: HevySet[];
+  /** Most recent weigh-in regardless of range (for macro targets). */
+  latestWeightKg?: number | null;
 };
 
 export function rangeStart(rangeDays: number) {
@@ -273,6 +276,7 @@ export function buildDashboard(raw: Raw, rangeDays: number): Dashboard {
     cardio: wk.filter((w) => isCardio(w.activity_type)),
     hevy: [...hevy].sort((a, b) => b.started_at.localeCompare(a.started_at)),
     hevySets: raw.hevySets ?? [],
+    latestWeightKg: raw.latestWeightKg ?? null,
     liftWeeks: [...liftWeeks.values()],
     food: raw.food,
   };
@@ -286,6 +290,18 @@ export const wLabel = (u: Units) => (u === 'imperial' ? 'lb' : 'kg');
 export const waterLabel = (u: Units) => (u === 'imperial' ? 'oz' : 'ml');
 export const distLabel = (u: Units) => (u === 'imperial' ? 'mi' : 'km');
 export const round = (n: number, dp = 1) => Math.round(n * 10 ** dp) / 10 ** dp;
+
+/**
+ * Daily macro targets (grams) from the calorie goal.
+ * Protein 0.8 g/lb of body weight (1.76 g/kg); 26% of calories if no weight yet.
+ * Fat 28% of calories. Carbs: the remaining calories.
+ */
+export function macroTargets(calorieGoal: number, weightKg: number | null | undefined) {
+  const protein = Math.round(weightKg ? weightKg * 2.20462 * 0.8 : (calorieGoal * 0.26) / 4);
+  const fat = Math.round((calorieGoal * 0.28) / 9);
+  const carbs = Math.max(0, Math.round((calorieGoal - protein * 4 - fat * 9) / 4));
+  return { protein, carbs, fat, fromWeight: !!weightKg };
+}
 
 export const mean = (xs: (number | null)[]) => {
   const v = xs.filter((x): x is number => x != null);

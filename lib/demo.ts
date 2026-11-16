@@ -124,6 +124,7 @@ export function demoDashboard(rangeDays: number) {
       sleep,
       workouts: workouts.reverse(),
       hevy: hevy.reverse(),
+      latestWeightKg: weight.at(-1)?.weight_kg ?? null,
       hevySets: hevySets.filter((x) => hevy.slice(0, 15).some((h) => h.id === x.workout_id)),
     },
     rangeDays,

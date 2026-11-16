@@ -27,7 +27,7 @@ export async function fetchRaw(rangeDays: number): Promise<Raw> {
   weightStart.setDate(weightStart.getDate() - 6); // so the 7-day average is defined from day one
   const iso = start.toISOString();
 
-  const [settings, food, water, weight, sleep, workouts, hevy] = await Promise.all([
+  const [settings, food, water, weight, sleep, workouts, hevy, lastWeight] = await Promise.all([
     supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
     supabase.from('food_entries').select('*').gte('eaten_at', iso).order('eaten_at', { ascending: false }).limit(5000),
     supabase.from('water_entries').select('logged_at, amount_ml').gte('logged_at', iso).limit(10000),
@@ -41,8 +41,9 @@ export async function fetchRaw(rangeDays: number): Promise<Raw> {
       .select('id, title, description, started_at, ended_at, duration_min, volume_kg, set_count')
       .gte('started_at', iso)
       .order('started_at', { ascending: false }),
+    supabase.from('weight_entries').select('weight_kg').order('measured_at', { ascending: false }).limit(1),
   ]);
-  const err = [settings, food, water, weight, sleep, workouts, hevy].find((r) => r.error)?.error;
+  const err = [settings, food, water, weight, sleep, workouts, hevy, lastWeight].find((r) => r.error)?.error;
   if (err) throw new Error(err.message);
 
   // Exercise detail only for the most recent sessions (shown in the lifting log).
@@ -67,5 +68,6 @@ export async function fetchRaw(rangeDays: number): Promise<Raw> {
     workouts: (workouts.data ?? []) as WorkoutRow[],
     hevy: (hevy.data ?? []) as HevyWorkout[],
     hevySets: (sets.data ?? []) as HevySet[],
+    latestWeightKg: lastWeight.data?.[0] ? Number(lastWeight.data[0].weight_kg) : null,
   };
 }

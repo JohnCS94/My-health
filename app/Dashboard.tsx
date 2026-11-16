@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-  LockedError, distLabel, kgTo, kmTo, loadDashboard, localDate, mean, mlTo, round, wLabel, waterLabel,
+  LockedError, distLabel, kgTo, kmTo, loadDashboard, localDate, macroTargets, mean, mlTo, round, wLabel, waterLabel,
   type Dashboard as Data,
 } from '@/lib/data';
 import { demoDashboard } from '@/lib/demo';
@@ -182,15 +182,28 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
 
             <ChartCard
               title="Macros"
-              hint="Grams per day"
-              legend={
-                <Legend
-                  items={[
-                    { label: 'Protein', color: t.series[0] },
-                    { label: 'Carbs', color: t.series[1] },
-                    { label: 'Fat', color: t.series[2] },
-                  ]}
-                />
+              hint={`Grams per day · targets from your ${data.profile.calorie_goal ?? 2200} kcal goal${
+                v.macros.fromWeight ? ' and weight' : ''
+              }`}
+              sub={
+                <div className="targets">
+                  {(
+                    [
+                      ['Protein', v.macroAvg.protein, v.macros.protein, t.series[0]],
+                      ['Carbs', v.macroAvg.carbs, v.macros.carbs, t.series[1]],
+                      ['Fat', v.macroAvg.fat, v.macros.fat, t.series[2]],
+                    ] as const
+                  ).map(([name, avg, target, color]) => (
+                    <div className="target" key={name}>
+                      <i style={{ background: color }} />
+                      <span>{name}</span>
+                      <b>
+                        {avg != null ? Math.round(avg) : '–'} / {target} g
+                      </b>
+                    </div>
+                  ))}
+                  <span className="target-note">avg / target per day</span>
+                </div>
               }
             >
               <StackedChart
@@ -517,6 +530,13 @@ function derive(data: Data) {
   return {
     u,
     latestWeight: weights.at(-1)?.weightKg ?? null,
+    macros: macroTargets(data.profile.calorie_goal ?? 2200, data.latestWeightKg),
+    // Averages over days that have food logged.
+    macroAvg: {
+      protein: mean(data.days.map((d) => (d.calories != null ? d.protein : null))),
+      carbs: mean(data.days.map((d) => (d.calories != null ? d.carbs : null))),
+      fat: mean(data.days.map((d) => (d.calories != null ? d.fat : null))),
+    },
     weightChange: firstAvg != null && lastAvg != null && weights.length > 1 ? lastAvg - firstAvg : null,
     weightGoal: data.profile.weight_goal_kg ? round(kgTo(Number(data.profile.weight_goal_kg), u)) : null,
     weightSeries: data.days.map((d) => ({
